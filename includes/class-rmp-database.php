@@ -35,6 +35,7 @@ class Redirect_Manager_Pro_Database {
 		$table_redirects = $wpdb->prefix . 'rmp_redirects';
 		$table_404_logs  = $wpdb->prefix . 'rmp_404_logs';
 		$table_broken_links = $wpdb->prefix . 'rmp_broken_links';
+		$table_groups = $wpdb->prefix . 'rmp_groups';
 
 		$sql_redirects = "CREATE TABLE $table_redirects (
 			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -42,6 +43,8 @@ class Redirect_Manager_Pro_Database {
 			url_to text NOT NULL,
 			status int(3) NOT NULL DEFAULT 301,
 			type varchar(20) NOT NULL DEFAULT 'exact',
+			query_status varchar(20) NOT NULL DEFAULT 'ignore',
+			group_id bigint(20) unsigned NOT NULL DEFAULT 0,
 			hits bigint(20) unsigned NOT NULL DEFAULT 0,
 			created_at datetime DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
@@ -53,7 +56,9 @@ class Redirect_Manager_Pro_Database {
 			url text NOT NULL,
 			ip varchar(45) NOT NULL,
 			user_agent text,
+			count bigint(20) unsigned NOT NULL DEFAULT 1,
 			timestamp datetime DEFAULT CURRENT_TIMESTAMP,
+			last_updated datetime DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id)
 		) $charset_collate;";
 
@@ -68,10 +73,19 @@ class Redirect_Manager_Pro_Database {
 			KEY post_id (post_id)
 		) $charset_collate;";
 
+		$sql_groups = "CREATE TABLE $table_groups (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			name varchar(191) NOT NULL,
+			status varchar(20) NOT NULL DEFAULT 'enabled',
+			created_at datetime DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id)
+		) $charset_collate;";
+
 		require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
 		dbDelta( $sql_redirects );
 		dbDelta( $sql_404_logs );
 		dbDelta( $sql_broken_links );
+		dbDelta( $sql_groups );
 	}
 
 }

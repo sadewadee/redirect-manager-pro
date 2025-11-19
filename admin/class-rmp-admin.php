@@ -115,9 +115,12 @@ class Redirect_Manager_Pro_Admin {
 		if ( $active_tab == 'redirects' ) {
 			$table_name = $wpdb->prefix . 'rmp_redirects';
 			$data['redirects'] = $wpdb->get_results( "SELECT * FROM $table_name ORDER BY id DESC" );
+			$data['groups'] = $wpdb->get_results( "SELECT * FROM {$wpdb->prefix}rmp_groups" );
+		} elseif ( $active_tab == 'groups' ) {
+			$data['groups'] = $wpdb->get_results( "SELECT * FROM {$wpdb->prefix}rmp_groups ORDER BY id DESC" );
 		} elseif ( $active_tab == 'logs' ) {
 			$table_name = $wpdb->prefix . 'rmp_404_logs';
-			$data['logs'] = $wpdb->get_results( "SELECT * FROM $table_name ORDER BY id DESC LIMIT 100" );
+			$data['logs'] = $wpdb->get_results( "SELECT * FROM $table_name ORDER BY last_updated DESC LIMIT 100" );
 		} elseif ( $active_tab == 'scanner' ) {
 			$table_name = $wpdb->prefix . 'rmp_broken_links';
 			$data['broken_links'] = $wpdb->get_results( "SELECT * FROM $table_name ORDER BY id DESC" );
@@ -143,12 +146,15 @@ class Redirect_Manager_Pro_Admin {
 
 		global $wpdb;
 		$redirects_table = $wpdb->prefix . 'rmp_redirects';
+		$groups_table = $wpdb->prefix . 'rmp_groups';
 
 		if ( $_POST['rmp_action'] == 'add_redirect' ) {
 			$url_from = sanitize_text_field( $_POST['url_from'] );
 			$url_to = sanitize_text_field( $_POST['url_to'] );
 			$status = intval( $_POST['status'] );
 			$type = sanitize_text_field( $_POST['type'] );
+			$query_status = sanitize_text_field( $_POST['query_status'] );
+			$group_id = intval( $_POST['group_id'] );
 
 			$wpdb->insert(
 				$redirects_table,
@@ -156,9 +162,11 @@ class Redirect_Manager_Pro_Admin {
 					'url_from' => $url_from,
 					'url_to'   => $url_to,
 					'status'   => $status,
-					'type'     => $type
+					'type'     => $type,
+					'query_status' => $query_status,
+					'group_id' => $group_id
 				),
-				array( '%s', '%s', '%d', '%s' )
+				array( '%s', '%s', '%d', '%s', '%s', '%d' )
 			);
 
 			wp_redirect( admin_url( 'admin.php?page=redirect-manager-pro&message=added' ) );
@@ -170,6 +178,27 @@ class Redirect_Manager_Pro_Admin {
 			$wpdb->delete( $redirects_table, array( 'id' => $id ), array( '%d' ) );
 
 			wp_redirect( admin_url( 'admin.php?page=redirect-manager-pro&message=deleted' ) );
+			exit;
+		}
+
+		if ( $_POST['rmp_action'] == 'add_group' ) {
+			$name = sanitize_text_field( $_POST['group_name'] );
+			$wpdb->insert(
+				$groups_table,
+				array( 'name' => $name ),
+				array( '%s' )
+			);
+			wp_redirect( admin_url( 'admin.php?page=redirect-manager-pro&tab=groups&message=group_added' ) );
+			exit;
+		}
+
+		if ( $_POST['rmp_action'] == 'delete_group' ) {
+			$id = intval( $_POST['id'] );
+			$wpdb->delete( $groups_table, array( 'id' => $id ), array( '%d' ) );
+			// Optionally update redirects to remove group_id
+			$wpdb->update( $redirects_table, array( 'group_id' => 0 ), array( 'group_id' => $id ), array( '%d' ), array( '%d' ) );
+
+			wp_redirect( admin_url( 'admin.php?page=redirect-manager-pro&tab=groups&message=group_deleted' ) );
 			exit;
 		}
 

@@ -1,14 +1,29 @@
-(function( $ ) {
+(function ($) {
 	'use strict';
 
-	$(function() {
+	$(document).ready(function () {
 
-		$('#rmp-start-scan').on('click', function(e) {
+		// Toggle Add Redirect Form
+		$('#rmp-add-new-btn').on('click', function (e) {
+			e.preventDefault();
+			$('#rmp-add-redirect-form').slideDown();
+			$(this).hide();
+		});
+
+		$('#rmp-cancel-btn').on('click', function (e) {
+			e.preventDefault();
+			$('#rmp-add-redirect-form').slideUp(function () {
+				$('#rmp-add-new-btn').show();
+			});
+		});
+
+		// Link Scanner Logic
+		$('#rmp-start-scan').on('click', function (e) {
 			e.preventDefault();
 
 			var $btn = $(this);
 			var $progress = $('#rmp-scan-progress');
-			var $bar = $('#rmp-progress-bar');
+			var $bar = $progress.find('.bar');
 			var $status = $('#rmp-scan-status');
 
 			$btn.prop('disabled', true);
@@ -16,32 +31,42 @@
 			$status.text('Starting scan...');
 			$bar.css('width', '0%');
 
-			scanBatch(0, 5);
+			scanBatch(1, 0);
 
-			function scanBatch(offset, limit) {
+			function scanBatch(page, totalProcessed) {
 				$.ajax({
 					url: rmp_ajax.ajax_url,
 					type: 'POST',
 					data: {
 						action: 'rmp_scan_batch',
 						nonce: rmp_ajax.nonce,
-						offset: offset,
-						limit: limit
+						page: page
 					},
-					success: function(response) {
+					success: function (response) {
 						if (response.success) {
 							var data = response.data;
-							var percent = Math.round((data.next_offset / data.total) * 100);
-							$bar.css('width', percent + '%');
-							$status.text('Scanned ' + data.next_offset + ' of ' + data.total + ' posts...');
+							var processed = data.processed_count;
+							var total = data.total_posts;
+							var currentTotal = totalProcessed + processed;
 
-							if (!data.completed) {
-								scanBatch(data.next_offset, limit);
+							var percent = 0;
+							if (total > 0) {
+								percent = Math.round((currentTotal / total) * 100); // This is rough estimation as total might change or be per batch
+								// Better: The response should ideally return global progress if possible.
+								// For now, let's just increment bar based on pages.
+								// Actually, let's just show "Processing page X..."
+							}
+
+							$bar.css('width', percent + '%');
+							$status.text('Scanning page ' + page + '... Found ' + data.broken_links_found + ' broken links so far.');
+
+							if (!data.done) {
+								scanBatch(page + 1, currentTotal);
 							} else {
-								$status.text('Scan complete!');
-								$btn.prop('disabled', false);
-								setTimeout(function() {
-									location.reload(); // Reload to show results
+								$bar.css('width', '100%');
+								$status.text('Scan complete! Reloading...');
+								setTimeout(function () {
+									location.reload();
 								}, 1000);
 							}
 						} else {
@@ -49,8 +74,8 @@
 							$btn.prop('disabled', false);
 						}
 					},
-					error: function() {
-						$status.text('AJAX Error');
+					error: function () {
+						$status.text('Server error occurred.');
 						$btn.prop('disabled', false);
 					}
 				});
@@ -59,4 +84,4 @@
 
 	});
 
-})( jQuery );
+})(jQuery);

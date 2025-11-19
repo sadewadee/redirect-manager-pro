@@ -77,6 +77,7 @@ class Redirect_Manager_Pro {
 		$this->define_redirect_hooks();
 		$this->define_typo_hooks();
 		$this->define_scanner_hooks();
+		$this->define_monitor_hooks();
 
 	}
 
@@ -133,8 +134,32 @@ class Redirect_Manager_Pro {
 		 */
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-rmp-scanner.php';
 
+		/**
+		 * The class responsible for monitoring permalink changes.
+		 */
+		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-rmp-monitor.php';
+
 		$this->loader = new Redirect_Manager_Pro_Loader();
 
+		// Check for database updates
+		$this->check_update();
+
+	}
+
+	/**
+	 * Check if the plugin has been updated and run database migrations if necessary.
+	 *
+	 * @since    1.0.0
+	 * @access   private
+	 */
+	private function check_update() {
+		$installed_version = get_option( 'rmp_version' );
+
+		if ( version_compare( $installed_version, RMP_VERSION, '<' ) ) {
+			require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-rmp-database.php';
+			Redirect_Manager_Pro_Database::create_tables();
+			update_option( 'rmp_version', RMP_VERSION );
+		}
 	}
 
 	/**
@@ -230,6 +255,21 @@ class Redirect_Manager_Pro {
 		$plugin_scanner = new Redirect_Manager_Pro_Scanner();
 
 		$this->loader->add_action( 'wp_ajax_rmp_scan_batch', $plugin_scanner, 'ajax_scan_batch' );
+
+	}
+
+	/**
+	 * Register all of the hooks related to the permalink monitor functionality
+	 * of the plugin.
+	 *
+	 * @since    1.0.0
+	 * @access   private
+	 */
+	private function define_monitor_hooks() {
+
+		$plugin_monitor = new Redirect_Manager_Pro_Monitor();
+
+		$this->loader->add_action( 'post_updated', $plugin_monitor, 'monitor_slug_change', 10, 3 );
 
 	}
 

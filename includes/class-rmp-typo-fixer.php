@@ -48,15 +48,40 @@ class Redirect_Manager_Pro_Typo_Fixer {
 
 		// 1. Log the 404
 		$table_logs = $wpdb->prefix . 'rmp_404_logs';
-		$wpdb->insert(
-			$table_logs,
-			array(
-				'url'        => $request_uri,
-				'ip'         => $_SERVER['REMOTE_ADDR'],
-				'user_agent' => isset( $_SERVER['HTTP_USER_AGENT'] ) ? $_SERVER['HTTP_USER_AGENT'] : '',
-			),
-			array( '%s', '%s', '%s' )
-		);
+
+		// Check if this URL/IP combination was logged recently (e.g., last hour)
+		$existing_log = $wpdb->get_row( $wpdb->prepare(
+			"SELECT id, count FROM $table_logs WHERE url = %s AND ip = %s AND last_updated > %s",
+			$request_uri,
+			$_SERVER['REMOTE_ADDR'],
+			date( 'Y-m-d H:i:s', strtotime( '-1 hour' ) )
+		) );
+
+		if ( $existing_log ) {
+			$wpdb->update(
+				$table_logs,
+				array(
+					'count' => $existing_log->count + 1,
+					'last_updated' => current_time( 'mysql' )
+				),
+				array( 'id' => $existing_log->id ),
+				array( '%d', '%s' ),
+				array( '%d' )
+			);
+		} else {
+			$wpdb->insert(
+				$table_logs,
+				array(
+					'url'        => $request_uri,
+					'ip'         => $_SERVER['REMOTE_ADDR'],
+					'user_agent' => isset( $_SERVER['HTTP_USER_AGENT'] ) ? $_SERVER['HTTP_USER_AGENT'] : '',
+					'count'      => 1,
+					'timestamp'  => current_time( 'mysql' ),
+					'last_updated' => current_time( 'mysql' )
+				),
+				array( '%s', '%s', '%s', '%d', '%s', '%s' )
+			);
+		}
 
 		// 2. Smart Typo Detection
 		// Don't run on short slugs to avoid false positives

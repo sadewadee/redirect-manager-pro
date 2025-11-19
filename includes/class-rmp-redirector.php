@@ -53,22 +53,67 @@ class Redirect_Manager_Pro_Redirector {
 		// For now, let's try exact match with the path as is.
 
 		// 1. Exact Match
-		$redirect = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $table_name WHERE url_from = %s AND type = 'exact'", $path ) );
+		// We need to check for both exact path matches and handle query params
 
-		if ( ! $redirect ) {
+		// Fetch potential matches by path first to reduce DB load
+		$potential_redirects = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM $table_name WHERE url_from = %s AND type = 'exact'", $path ) );
+
+		if ( empty( $potential_redirects ) ) {
 			// Try with/without trailing slash
 			$alt_path = ( substr( $path, -1 ) == '/' ) ? rtrim( $path, '/' ) : $path . '/';
-			$redirect = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $table_name WHERE url_from = %s AND type = 'exact'", $alt_path ) );
+			$potential_redirects = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM $table_name WHERE url_from = %s AND type = 'exact'", $alt_path ) );
 		}
 
-		// 2. Wildcard Match (Simple * support)
+		$redirect = null; // Initialize redirect variable
+
+		if ( ! empty( $potential_redirects ) ) {
+			foreach ( $potential_redirects as $pr ) {
+				// Check Query Status
+				if ( $pr->query_status == 'exact' ) {
+					// Reconstruct full request URI for comparison or just compare query string
+					// If query_status is exact, the url_from in DB might include query params?
+					// Usually 'exact' in other plugins means the source URL in DB *has* params and they must match.
+					// BUT our schema splits url_from. Let's assume url_from is PATH only for now,
+					// and if 'exact', we might need to store the query string in url_from?
+					// Actually, standard practice: url_from contains the full string if it has params.
+
+					// Let's refine: If user enters /foo?a=b, url_from is /foo?a=b.
+					// So we should match against $request_uri, not $path.
+
+					if ( $pr->url_from == $request_uri ) {
+						$redirect = $pr;
+						break;
+					}
+				} elseif ( $pr->query_status == 'ignore' ) {
+					// Default: Match path, ignore params.
+					$redirect = $pr;
+					break;
+				} elseif ( $pr->query_status == 'pass' ) {
+					// Match path, pass params to target.
+					$redirect = $pr;
+					// Append query to target
+					if ( ! empty( $query ) ) {
+						$redirect->url_to = add_query_arg( $_GET, $redirect->url_to );
+					}
+					break;
+				}
+			}
+		}
+
+		// 2. Wildcard Match
 		if ( ! $redirect ) {
-			// Fetch all wildcards - caching recommended here for performance in production
 			$wildcards = $wpdb->get_results( "SELECT * FROM $table_name WHERE type = 'wildcard'" );
 			foreach ( $wildcards as $wc ) {
 				$pattern = str_replace( '*', '.*', $wc->url_from );
-				if ( preg_match( "#^$pattern$#", $path ) ) {
+				// Check against full URI if it contains ?, else path
+				$check_against = ( strpos( $wc->url_from, '?' ) !== false ) ? $request_uri : $path;
+
+				if ( preg_match( "#^$pattern$#", $check_against ) ) {
 					$redirect = $wc;
+					// Pass params if requested
+					if ( $wc->query_status == 'pass' && ! empty( $query ) ) {
+						$redirect->url_to = add_query_arg( $_GET, $redirect->url_to );
+					}
 					break;
 				}
 			}
@@ -78,8 +123,12 @@ class Redirect_Manager_Pro_Redirector {
 		if ( ! $redirect ) {
 			$regexs = $wpdb->get_results( "SELECT * FROM $table_name WHERE type = 'regex'" );
 			foreach ( $regexs as $rx ) {
-				if ( preg_match( "#" . $rx->url_from . "#", $path ) ) {
+				if ( preg_match( "#" . $rx->url_from . "#", $request_uri ) ) {
 					$redirect = $rx;
+					// Pass params if requested
+					if ( $rx->query_status == 'pass' && ! empty( $query ) ) {
+						$redirect->url_to = add_query_arg( $_GET, $redirect->url_to );
+					}
 					break;
 				}
 			}

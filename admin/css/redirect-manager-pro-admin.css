@@ -38,9 +38,10 @@
 .plugin-name-content .card {
 	background: #fff;
 	border: 1px solid #ccd0d4;
-	box-shadow: 0 1px 1px rgba(0,0,0,.04);
+	box-shadow: 0 1px 1px rgba(0, 0, 0, .04);
 	padding: 20px;
-	margin-top: 0; /* Override WP default */
+	margin-top: 0;
+	/* Override WP default */
 	max-width: 100%;
 }
 
@@ -105,15 +106,15 @@
 	transition: .4s;
 }
 
-input:checked + .slider {
+input:checked+.slider {
 	background-color: #2271b1;
 }
 
-input:focus + .slider {
+input:focus+.slider {
 	box-shadow: 0 0 1px #2271b1;
 }
 
-input:checked + .slider:before {
+input:checked+.slider:before {
 	-webkit-transform: translateX(16px);
 	-ms-transform: translateX(16px);
 	transform: translateX(16px);
@@ -126,4 +127,55 @@ input:checked + .slider:before {
 
 .slider.round:before {
 	border-radius: 50%;
+}
+
+/* Add Redirect Form Styles */
+.rmp-header-actions {
+	margin: 20px 0;
+}
+
+#rmp-add-redirect-form {
+	display: none;
+	margin-bottom: 20px;
+	padding: 20px;
+	background: #f9f9f9;
+	border: 1px solid #ccd0d4;
+}
+
+.rmp-form-row {
+	margin-bottom: 15px;
+}
+
+.rmp-form-row label {
+	display: block;
+	font-weight: 600;
+	margin-bottom: 5px;
+}
+
+.rmp-form-row input[type="text"],
+.rmp-form-row select {
+	width: 100%;
+	max-width: 100%;
+}
+
+.rmp-form-row .description {
+	margin-top: 5px;
+	color: #666;
+	font-style: italic;
+}
+
+.rmp-form-actions {
+	margin-top: 20px;
+	display: flex;
+	gap: 10px;
+}
+
+.rmp-flex-row {
+	display: flex;
+	gap: 20px;
+	align-items: center;
+}
+
+.rmp-col {
+	flex: 1;
 }
