@@ -5,7 +5,7 @@
  *
  * @link       http://example.com
  * @since      1.0.0
- * @package    Plugin_Name
+ * @package    Redirect_Manager_Pro
  */
 
 // If uninstall not called from WordPress, then exit.
@@ -15,4 +15,4 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 
 // Add your uninstall logic here.
 // For example, deleting options or custom tables.
-// delete_option( 'plugin_name_option' );
+// delete_option( 'redirect_manager_pro_option' );

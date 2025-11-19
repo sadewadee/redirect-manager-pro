@@ -5,8 +5,8 @@
  *
  * @link       http://example.com
  * @since      1.0.0
- * @package    Plugin_Name
- * @subpackage Plugin_Name/includes
+ * @package    Redirect_Manager_Pro
+ * @subpackage Redirect_Manager_Pro/includes
  */
 
 /**
@@ -15,11 +15,11 @@
  * This class defines all code necessary to run during the plugin's activation.
  *
  * @since      1.0.0
- * @package    Plugin_Name
- * @subpackage Plugin_Name/includes
- * @author     Your Name <email@example.com>
+ * @package    Redirect_Manager_Pro
+ * @subpackage Redirect_Manager_Pro/includes
+ * @author     Sadewadee
  */
-class Plugin_Name_Activator {
+class Redirect_Manager_Pro_Activator {
 
 	/**
 	 * Short Description. (use period)
@@ -29,7 +29,8 @@ class Plugin_Name_Activator {
 	 * @since    1.0.0
 	 */
 	public static function activate() {
-
+		require_once plugin_dir_path( __FILE__ ) . 'class-rmp-database.php';
+		Redirect_Manager_Pro_Database::create_tables();
 	}
 
 }

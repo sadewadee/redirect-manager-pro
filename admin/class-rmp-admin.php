@@ -5,8 +5,8 @@
  *
  * @link       http://example.com
  * @since      1.0.0
- * @package    Plugin_Name
- * @subpackage Plugin_Name/admin
+ * @package    Redirect_Manager_Pro
+ * @subpackage Redirect_Manager_Pro/admin
  */
 
 /**
@@ -15,20 +15,20 @@
  * Defines the plugin name, version, and two examples hooks for how to
  * enqueue the admin-specific stylesheet and JavaScript.
  *
- * @package    Plugin_Name
- * @subpackage Plugin_Name/admin
- * @author     Your Name <email@example.com>
+ * @package    Redirect_Manager_Pro
+ * @subpackage Redirect_Manager_Pro/admin
+ * @author     Sadewadee
  */
-class Plugin_Name_Admin {
+class Redirect_Manager_Pro_Admin {
 
 	/**
 	 * The ID of this plugin.
 	 *
 	 * @since    1.0.0
 	 * @access   private
-	 * @var      string    $plugin_name    The ID of this plugin.
+	 * @var      string    $redirect_manager_pro    The ID of this plugin.
 	 */
-	private $plugin_name;
+	private $redirect_manager_pro;
 
 	/**
 	 * The version of this plugin.
@@ -43,12 +43,12 @@ class Plugin_Name_Admin {
 	 * Initialize the class and set its properties.
 	 *
 	 * @since    1.0.0
-	 * @param    string    $plugin_name       The name of this plugin.
+	 * @param    string    $redirect_manager_pro       The name of this plugin.
 	 * @param    string    $version    The version of this plugin.
 	 */
-	public function __construct( $plugin_name, $version ) {
+	public function __construct( $redirect_manager_pro, $version ) {
 
-		$this->plugin_name = $plugin_name;
+		$this->redirect_manager_pro = $redirect_manager_pro;
 		$this->version = $version;
 
 	}
@@ -60,19 +60,7 @@ class Plugin_Name_Admin {
 	 */
 	public function enqueue_styles() {
 
-		/**
-		 * This function is provided for demonstration purposes only.
-		 *
-		 * An instance of this class should be passed to the run() function
-		 * defined in Plugin_Name_Loader as all of the hooks are defined
-		 * in that particular class.
-		 *
-		 * The Plugin_Name_Loader will then create the relationship
-		 * between the defined hooks and the functions defined in this
-		 * class.
-		 */
-
-		wp_enqueue_style( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'css/plugin-name-admin.css', array(), $this->version, 'all' );
+		wp_enqueue_style( $this->redirect_manager_pro, plugin_dir_url( __FILE__ ) . 'css/redirect-manager-pro-admin.css', array(), $this->version, 'all' );
 
 	}
 
@@ -83,19 +71,12 @@ class Plugin_Name_Admin {
 	 */
 	public function enqueue_scripts() {
 
-		/**
-		 * This function is provided for demonstration purposes only.
-		 *
-		 * An instance of this class should be passed to the run() function
-		 * defined in Plugin_Name_Loader as all of the hooks are defined
-		 * in that particular class.
-		 *
-		 * The Plugin_Name_Loader will then create the relationship
-		 * between the defined hooks and the functions defined in this
-		 * class.
-		 */
+		wp_enqueue_script( $this->redirect_manager_pro, plugin_dir_url( __FILE__ ) . 'js/redirect-manager-pro-admin.js', array( 'jquery' ), $this->version, false );
 
-		wp_enqueue_script( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'js/plugin-name-admin.js', array( 'jquery' ), $this->version, false );
+		wp_localize_script( $this->redirect_manager_pro, 'rmp_ajax', array(
+			'ajax_url' => admin_url( 'admin-ajax.php' ),
+			'nonce'    => wp_create_nonce( 'rmp_scan_nonce' ),
+		) );
 
 	}
 
@@ -106,22 +87,14 @@ class Plugin_Name_Admin {
 	 */
 	public function add_plugin_admin_menu() {
 
-		/*
-		 * Add a settings page for this plugin to the Settings menu.
-		 *
-		 * NOTE:  Alternative menu locations are available via WordPress administration menu functions.
-		 *
-		 *        Administration Menus: http://codex.wordpress.org/Administration_Menus
-		 *
-		 */
 		add_menu_page(
-			'Plugin Name Settings',
-			'Plugin Name',
+			'Redirect Manager Pro',
+			'Redirect Manager',
 			'manage_options',
-			$this->plugin_name,
+			$this->redirect_manager_pro,
 			array( $this, 'display_plugin_admin_page' ),
-			'dashicons-admin-generic',
-			6
+			'dashicons-randomize',
+			30
 		);
 
 	}
@@ -133,8 +106,101 @@ class Plugin_Name_Admin {
 	 */
 	public function display_plugin_admin_page() {
 
-		include_once 'partials/plugin-name-admin-display.php';
+		global $wpdb;
+		$active_tab = isset( $_GET['tab'] ) ? $_GET['tab'] : 'redirects';
 
+		// Fetch data based on tab
+		$data = array();
+
+		if ( $active_tab == 'redirects' ) {
+			$table_name = $wpdb->prefix . 'rmp_redirects';
+			$data['redirects'] = $wpdb->get_results( "SELECT * FROM $table_name ORDER BY id DESC" );
+		} elseif ( $active_tab == 'logs' ) {
+			$table_name = $wpdb->prefix . 'rmp_404_logs';
+			$data['logs'] = $wpdb->get_results( "SELECT * FROM $table_name ORDER BY id DESC LIMIT 100" );
+		} elseif ( $active_tab == 'scanner' ) {
+			$table_name = $wpdb->prefix . 'rmp_broken_links';
+			$data['broken_links'] = $wpdb->get_results( "SELECT * FROM $table_name ORDER BY id DESC" );
+		}
+
+		include_once 'partials/rmp-admin-display.php';
+
+	}
+
+	/**
+	 * Handle form submissions.
+	 */
+	public function handle_post_requests() {
+		if ( ! isset( $_POST['rmp_action'] ) ) {
+			return;
+		}
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		check_admin_referer( 'rmp_action_nonce', 'rmp_nonce' );
+
+		global $wpdb;
+		$redirects_table = $wpdb->prefix . 'rmp_redirects';
+
+		if ( $_POST['rmp_action'] == 'add_redirect' ) {
+			$url_from = sanitize_text_field( $_POST['url_from'] );
+			$url_to = sanitize_text_field( $_POST['url_to'] );
+			$status = intval( $_POST['status'] );
+			$type = sanitize_text_field( $_POST['type'] );
+
+			$wpdb->insert(
+				$redirects_table,
+				array(
+					'url_from' => $url_from,
+					'url_to'   => $url_to,
+					'status'   => $status,
+					'type'     => $type
+				),
+				array( '%s', '%s', '%d', '%s' )
+			);
+
+			wp_redirect( admin_url( 'admin.php?page=redirect-manager-pro&message=added' ) );
+			exit;
+		}
+
+		if ( $_POST['rmp_action'] == 'delete_redirect' ) {
+			$id = intval( $_POST['id'] );
+			$wpdb->delete( $redirects_table, array( 'id' => $id ), array( '%d' ) );
+
+			wp_redirect( admin_url( 'admin.php?page=redirect-manager-pro&message=deleted' ) );
+			exit;
+		}
+
+		if ( $_POST['rmp_action'] == 'import_csv' ) {
+			if ( ! empty( $_FILES['csv_file']['tmp_name'] ) ) {
+				$file = fopen( $_FILES['csv_file']['tmp_name'], 'r' );
+				while ( ( $line = fgetcsv( $file ) ) !== FALSE ) {
+					// Assuming CSV format: from, to, status, type
+					if ( count( $line ) >= 2 ) {
+						$url_from = sanitize_text_field( $line[0] );
+						$url_to = sanitize_text_field( $line[1] );
+						$status = isset( $line[2] ) ? intval( $line[2] ) : 301;
+						$type = isset( $line[3] ) ? sanitize_text_field( $line[3] ) : 'exact';
+
+						$wpdb->insert(
+							$redirects_table,
+							array(
+								'url_from' => $url_from,
+								'url_to'   => $url_to,
+								'status'   => $status,
+								'type'     => $type
+							),
+							array( '%s', '%s', '%d', '%s' )
+						);
+					}
+				}
+				fclose( $file );
+				wp_redirect( admin_url( 'admin.php?page=redirect-manager-pro&message=imported' ) );
+				exit;
+			}
+		}
 	}
 
 }
